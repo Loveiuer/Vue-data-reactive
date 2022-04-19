@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据响应式</title>
+</head>
+
+<body>
+    <script>
+        const arrayProto = Array.prototype
+        const newArrayProto = Object.create(arrayProto)
+        //重写原型链上的push unshift splice方法
+        const methods = ['push', 'unshift', 'splice']
+        methods.forEach(method => {
+            newArrayProto[method] = function (...args) {
+                console.log('视图更新');
+                let inserted
+                //调用原来的数组方法
+                switch (method) {
+                    case 'push':
+                    case 'unshift':
+                        inserted = args
+                        break
+                    case 'splice':
+                        inserted = args.slice(2)
+                }
+                arrayProto[method].apply(this, inserted)
+                //给新加入的元素做数据劫持
+                observerArray(args)
+            }
+        });
+        function observer(obj) {
+            if (typeof obj != 'object' || obj == null) {
+                return obj
+            }
+            if (Array.isArray(obj)) { //处理数组
+                //改变数组的原型链
+                Object.setPrototypeOf(obj, newArrayProto)
+                observerArray(obj)
+            } else {  //处理对象
+                for (let key in obj) {
+                    defineReactive(obj, key, obj[key])
+                }
+            }
+        }
+        //给数组里面的元素（如果是对象）做数据劫持
+        function observerArray(arr) {
+            for (let i = 0; i < arr.length; i++) {
+                observer(arr[i])
+            }
+        }
+        //给对象的属性做数据劫持
+        function defineReactive(obj, key, value) {
+            //递归添加get set
+            observer(value)
+            Object.defineProperty(obj, key, {
+                enumerable: true,
+                configurable: true,
+                get() {
+                    return value
+                },
+                set(newValue) {
+                    if (newValue != value) {
+                        console.log('视图更新');
+                        //新值也要做数据劫持
+                        observer(newValue)
+                        value = newValue
+                    }
+                }
+            })
+        }
+
+        let o = { name: 'zs', age: 18, friend: [{ a: 1, b: 2 }], }
+        observer(o)
+        console.log(o);
+    </script>
+</body>
+
+</html>
